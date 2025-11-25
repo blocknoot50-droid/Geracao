@@ -3,8 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>GERACAODOMAL - Terminal</title>
-
+<title>Terminal</title>
 <style>
     body {
         margin: 0;
@@ -14,7 +13,6 @@
         font-size: 18px;
         padding: 20px;
     }
-
     #terminal {
         width: 100%;
         height: 100vh;
@@ -26,7 +24,6 @@
         white-space: pre-wrap;
         overflow-y: auto;
     }
-
     .cursor {
         display: inline-block;
         width: 10px;
@@ -35,11 +32,9 @@
         margin-left: 5px;
         animation: blink 0.7s infinite;
     }
-
     @keyframes blink { 50% { opacity: 0; } }
 </style>
 </head>
-
 <body>
 <div id="terminal"></div>
 
@@ -47,35 +42,33 @@
 const terminal = document.getElementById("terminal");
 
 const lines = [
-    "C:\\Users\\GERACAODOMAL> Iniciando sistema...",
-    "C:\\Users\\GERACAODOMAL> Carregando módulos...",
-    "C:\\Users\\GERACAODOMAL> Executando script GERACAODOMAL.exe",
-    "C:\\Users\\GERACAODOMAL> Aguardando...",
-    "\nGERACAODOMAL INICIADO!\n"
+    "C:\\Users\\TERMINAL> Iniciando sistema...",
+    "C:\\Users\\TERMINAL> Carregando módulos...",
+    "C:\\Users\\TERMINAL> Executando script TERMINAL.exe",
+    "C:\\Users\\TERMINAL> Aguardando...",
+    "\nTERMINAL INICIADO!\n"
 ];
 
 let index = 0;
 
 function typeLine() {
     if (index < lines.length) {
-        let line = document.createElement("div");
+        const line = document.createElement("div");
         terminal.appendChild(line);
-
-        let text = lines[index];
+        const text = lines[index];
         let charIndex = 0;
 
         function typeChar() {
             if (charIndex < text.length) {
                 line.textContent += text[charIndex];
                 charIndex++;
-                setTimeout(typeChar, 20);
+                setTimeout(typeChar, 6);   // 3× mais rápido (20 ms → 6 ms)
             } else {
                 index++;
-                setTimeout(typeLine, 300);
+                setTimeout(typeLine, 80);  // 3× mais rápido (300 ms → 80 ms)
             }
         }
         typeChar();
-
     } else {
         terminal.appendChild(document.createElement("br"));
 
@@ -129,12 +122,12 @@ function typeLine() {
         `;
 
         const title = `
-██████╗ ███████╗██████╗  █████╗  ██████╗ █████╗  █████╗    ███╗   ███╗ █████╗ ██╗     
-██╔════╝ ██╔════╝██╔══██╗██╔══██╗██╔════╝██╔══██╗██╔══╝█    ████╗ ████║██╔══██╗██║     
-██║  ███╗█████╗  ██████╔╝███████║██║     ███████║██║  ███╗  ██╔████╔██║███████║██║     
-██║   ██║██╔══╝  ██╔══██╗██╔══██║██║     ██╔══██║██║   ██║  ██║╚██╔╝██║██╔══██║██║     
-╚██████╔╝███████╗██║  ██║██║  ██║╚██████╗██║  ██║╚██████╔   ██║ ╚═╝ ██║██║  ██║███████╗
- ╚═════╝ ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝ ╚═════    ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝ 
+ ██████╗   ███████╗  ██████╗    █████╗    ██████╗    █████╗    ██████╗       ██████╗    ██████╗      ███╗   ███╗   █████╗   ██╗     
+██╔════╝   ██╔════╝  ██╔══██╗  ██╔══██╗  ██╔════╝   ██╔══██╗  ██╔═══██╗      ██╔══██╗  ██╔═══██╗     ████╗ ████║  ██╔══██╗  ██║     
+██║  ███╗  █████╗    ██████╔╝  ███████║  ██║        ███████║  ██║   ██║      ██║  ██║  ██║   ██║     ██╔████╔██║  ███████║  ██║     
+██║   ██║  ██╔══╝    ██╔══██╗  ██╔══██║  ██║        ██╔══██║  ██║   ██║      ██║  ██║  ██║   ██║     ██║╚██╔╝██║  ██╔══██║  ██║     
+╚██████╔╝  ███████╗  ██║  ██║  ██║  ██║  ╚██████╗   ██║  ██║  ╚██████╔╝      ██████╔╝  ╚██████╔╝     ██║ ╚═╝ ██║  ██║  ██║  ███████╗
+ ╚═════╝   ╚══════╝  ╚═╝  ╚═╝  ╚═╝  ╚═╝   ╚═════╝   ╚═╝  ╚═╝   ╚═════╝        ╚═════╝    ╚═════╝      ╚═╝     ╚═╝  ╚═╝  ╚═╝  ╚══════╝
         `;
 
         const container = document.createElement("div");
@@ -154,7 +147,7 @@ function typeLine() {
         container.appendChild(nameBlock);
         terminal.appendChild(container);
 
-        let cursor = document.createElement("span");
+        const cursor = document.createElement("span");
         cursor.className = "cursor";
         terminal.appendChild(cursor);
     }
@@ -162,6 +155,5 @@ function typeLine() {
 
 typeLine();
 </script>
-
 </body>
 </html>
